@@ -1,0 +1,106 @@
+#!/bin/bash -i
+alias pac-cli="/usr/local/bin/pacprotocol-cli -datadir=/PACProtocol/.PACProtocol -conf=/PACProtocol/.PACProtocol/pacprotocol.conf"
+
+echo "################################"
+echo "#     Block Height Checker     #"
+echo "################################"
+echo ""
+
+tmp_file_open="/tmp/block-height-checker.open"
+
+if [ -f "$tmp_file_open" ]; then
+    printf "\033[1;33mAnother instance of the script is running. Aborting. \033[0m  \n"
+    exit
+else
+    touch "$tmp_file_open"
+fi
+
+#########################################################################################
+# Check first if the wallet is syncing. If it does nothing for 1h, it means sync issue! #
+#########################################################################################
+
+echo "Checking if PAC Protocol daemon is still in sync - it can take up to ~5 mins"
+
+## get block count. If wallet is not ready, retry. Timeout: 6 mins
+function get_blockcount 
+{
+    local count=0
+
+    while true
+    do
+        local blockcount=$(pac-cli getblockcount)
+        if [[ ! -z $blockcount ]]; then
+            echo $blockcount
+            break
+        fi
+
+        ## 24 x 15s = 6 mins
+        if [[ $count -gt 24 ]]; then
+            ## Give up, no reply from daemon at all! Something went wrong
+            printf "\033[0;31mPAC Protocol daemon is not replying at all! \033[0m \n"
+            echo ""
+            rm "$tmp_file_open"
+            exit 0
+        fi
+        sleep 15s
+        let count=count+1
+    done
+}
+
+previously_blockcount=$(get_blockcount)
+
+echo "Previously Block Height: $previously_blockcount"
+
+count=0
+while true
+do
+    current_blockcount=$(get_blockcount)
+    if [[ "$current_blockcount" -gt "$previously_blockcount" ]]; then
+        ## Block Height moved - it means wallet is still syncing!
+        echo "Current Blockcount: $current_blockcount"
+        printf "\033[1;33mPAC Prototocol is still syncing - everything looks healthy! \033[0m \n"
+        echo ""
+        rm "$tmp_file_open"
+        exit 0
+    fi
+
+    ## 240 x 15s = 1h time to check if block count changed otherwise reindex it!
+    if [[ $count -gt 240 ]]; then
+        break
+    fi
+
+    sleep 15s
+    let count=count+1
+done
+
+
+echo "Current Blockcount: $current_blockcount"
+
+#############################################
+# Compare Block Height with Explorer Server #
+#############################################
+explorer_blockcount=$(wget -qO- https://explorer.pacglobal.io/api/getblockcount)
+
+# We let allow slight block height differences, delta of 10 block height.
+offset_blockcount=10
+
+echo "Bootstrap Blockcount: $explorer_blockcount"
+
+if [[ -z "$explorer_blockcount" ]]; then
+    printf "\033[0;31mExplorer Server seems not be functional - retry later again \n"        
+    echo ""
+    rm "$tmp_file_open"    
+    exit 0
+else
+    if [[ "$(expr $explorer_blockcount - $offset_blockcount)" -gt "$current_blockcount"  ]]; then
+        printf "\033[1;33mBlock Height is outdated! \033[0m \n"
+        echo "Restarting PAC Protocol Daemon"
+        systemctl stop pac.service || true
+        systemctl start pac.service # TODO - need to add -reindex (once) parameter to pacprotocold to force reindexing (alternative solution: append reindex=1 in pacprotocol.conf and then remove it after starting daemon)
+    else
+        printf "\033[0;32mBlock Height is up-to-date! \033[0m \n"
+    fi
+fi
+
+echo ""
+rm "$tmp_file_open"

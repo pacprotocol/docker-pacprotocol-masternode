@@ -1,0 +1,14 @@
+#!/bin/bash
+
+bootstrap_location=$WORK_DIR/Bootstrap.tar.gz
+rm -rf $bootstrap_location
+
+if [[ ! -f "$DATA_PATH" ]]; then
+    rm -rf $DATA_PATH/evodb $DATA_PATH/chainstate $DATA_PATH/blocks $DATA_PATH/peers.dat || true
+fi
+
+echo "Downloading Bootstrap"
+wget --progress=dot -e dot_bytes=50M -e dots_in_line=1 https://utils.pacglobal.io/Bootstrap.tar.gz -O $bootstrap_location
+echo "Installing Bootstrap"
+tar -xzf $bootstrap_location -C $DATA_PATH/
+rm -rf $bootstrap_location

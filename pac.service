@@ -1,0 +1,26 @@
+[Unit]
+Description=PAC Protocol daemon
+After=network.target
+[Service]
+User=root
+Group=root
+Type=forking
+PIDFile=/PACProtocol/.PACProtocol/pacprotocol.pid
+ExecStart=/usr/local/bin/pacprotocold  \
+            -daemon  \
+            -pid=/PACProtocol/.PACProtocol/pacprotocol.pid \
+            -datadir=/PACProtocol/.PACProtocol  \
+            -conf=/PACProtocol/.PACProtocol/pacprotocol.conf
+ExecStop=/usr/local/bin/pacprotocol-cli  \
+            -datadir=/PACProtocol/.PACProtocol  \
+            -conf=/PACProtocol/.PACProtocol/pacprotocol.conf  \
+            stop
+Restart=always
+RestartSec=20s
+PrivateTmp=true
+TimeoutStopSec=7200s
+TimeoutStartSec=30s
+StartLimitInterval=120s
+StartLimitBurst=5
+[Install]
+WantedBy=multi-user.target

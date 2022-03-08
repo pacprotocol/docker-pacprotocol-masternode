@@ -1,0 +1,22 @@
+#!/bin/bash
+
+echo ""
+
+# If no configuration found - assume this is the first start. So we add configuration here.
+if [[ ! -f "$CONFIG_PATH" ]]; then
+    mn-config
+fi
+
+# Start Service (after config + bootstrap is done if this happens)
+echo "Starting PAC Protocol Daemon"
+systemctl start pac.service
+cron start #check crontab for more info
+
+echo ""
+printf "\033[0;36m==== LOGS ======================== \033[0m \n"
+echo ""
+
+tail -f /var/log/cron.log
+
+
+# /bin/bash

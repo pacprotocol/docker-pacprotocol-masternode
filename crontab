@@ -1,0 +1,4 @@
+#!/bin/sh
+
+0 */12 * * * root /usr/local/bin/block-height-checker >> /var/log/cron.log
+* * * * * root cd /PACProtocolHidden/sentinel && ./venv/bin/python bin/sentinel.py >> /var/log/cron.log
